@@ -1,6 +1,4 @@
 flask
 flask-cors
 python-telegram-bot==20.7
-pyTelegramBotAPI
-aiohttp
-gunicorn
+requests
