@@ -41,7 +41,7 @@ async def admin_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     import aiohttp
     try:
         async with aiohttp.ClientSession() as s:
-            async with s.get("http://localhost:5000/api/admin/stats") as r:
+            async with s.get("https://tonworldbot-production.up.railway.app/api/admin/stats") as r:
                 d = await r.json()
         text = f"""👑 *پنل ادمین TON WORLD*
 
@@ -66,7 +66,7 @@ async def callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if q.data == "stats":
         try:
             async with aiohttp.ClientSession() as s:
-                async with s.get("http://localhost:5000/api/stats") as r: d = await r.json()
+                async with s.get("https://tonworldbot-production.up.railway.app/api/stats") as r: d = await r.json()
             text = f"📊 *آمار TON WORLD*\n\n🗺️ فروخته: {d['sold_lands']}\n🟢 موجود: {d['available_lands']}\n👥 کاربران: {d['total_users']}\n💎 حجم: {d['total_volume']} TON\n🎁 ایردراپ: {d['airdrop_count']}/100 ({d['airdrop_remaining']} مونده)"
         except: text = "❌ خطا"
         await q.edit_message_text(text, parse_mode="Markdown")
@@ -74,7 +74,7 @@ async def callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif q.data == "lb":
         try:
             async with aiohttp.ClientSession() as s:
-                async with s.get("http://localhost:5000/api/leaderboard?type=lands") as r: d = await r.json()
+                async with s.get("https://tonworldbot-production.up.railway.app/api/leaderboard?type=lands") as r: d = await r.json()
             medals = ['🥇','🥈','🥉','4️⃣','5️⃣']
             text = "🏆 *لیدربورد - تعداد زمین*\n\n"
             for i,u in enumerate(d['data'][:5]):
@@ -85,7 +85,7 @@ async def callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif q.data == "airdrop":
         try:
             async with aiohttp.ClientSession() as s:
-                async with s.post("http://localhost:5000/api/airdrop",json={"telegram_id":user.id}) as r: d = await r.json()
+                async with s.post("https://tonworldbot-production.up.railway.app/api/airdrop",json={"telegram_id":user.id}) as r: d = await r.json()
             text = f"{'✅' if d.get('success') else '❌'} {d.get('message','خطا')}"
         except: text = "❌ خطا"
         await q.edit_message_text(text)
@@ -93,7 +93,7 @@ async def callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif q.data == "ref":
         try:
             async with aiohttp.ClientSession() as s:
-                async with s.get(f"http://localhost:5000/api/profile?id={user.id}") as r: d = await r.json()
+                async with s.get(f"https://tonworldbot-production.up.railway.app/api/profile?id={user.id}") as r: d = await r.json()
             ref = d.get('user',{}).get('referral_code','')
             link = f"https://t.me/Tonworldlybot?start={ref}"
             text = f"👥 *لینک دعوت تو:*\n\n`{link}`\n\n🎁 هر ۱۰ نفر = ۱ زمین رایگان\n📊 دعوتی‌های تو: {d.get('user',{}).get('ref_count',0)}"
@@ -107,7 +107,7 @@ async def callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif q.data == "adm_users" and str(user.id) == ADMIN_ID:
         try:
             async with aiohttp.ClientSession() as s:
-                async with s.get("http://localhost:5000/api/admin/users") as r: d = await r.json()
+                async with s.get("https://tonworldbot-production.up.railway.app/api/admin/users") as r: d = await r.json()
             users = d.get('users',[])[:5]
             text = "👥 *آخرین کاربران:*\n\n"
             for u in users:
@@ -123,7 +123,7 @@ async def handle_msg(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             to_id, amount = parts[0], float(parts[1])
             import aiohttp
             async with aiohttp.ClientSession() as s:
-                async with s.post("http://localhost:5000/api/admin/send",json={"to_id":to_id,"amount":amount,"note":"ادمین"}) as r: d = await r.json()
+                async with s.post("https://tonworldbot-production.up.railway.app/api/admin/send",json={"to_id":to_id,"amount":amount,"note":"ادمین"}) as r: d = await r.json()
             await update.message.reply_text(f"✅ {amount} TON به {to_id} ارسال شد")
             ctx.user_data.pop('action',None)
         except: await update.message.reply_text("❌ فرمت اشتباه\nمثال: `123456789 0.5`", parse_mode="Markdown")
