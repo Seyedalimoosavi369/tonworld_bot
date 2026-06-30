@@ -1,283 +1,141 @@
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+import os, logging
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-BOT_TOKEN = "8688031269:AAGkznT2odJXc64NlC1n9srC2QU90XrdYtA"
-ADMIN_ID = 8030373785
-bot = telebot.TeleBot(BOT_TOKEN)
+BOT_TOKEN = os.environ.get("BOT_TOKEN","")
+WEBAPP_URL = os.environ.get("WEBAPP_URL","https://seyedalimoosavi369.github.io/tonworld_frontend")
+ADMIN_ID = os.environ.get("ADMIN_ID","8030373785")
 
-CHANNEL = "@chat_chanelbot1"
-GROUP = "@chat_groupbot1"
+logging.basicConfig(level=logging.INFO)
 
-users = {}
-waiting = []
+async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    ref = ctx.args[0] if ctx.args else None
+    webapp_url = f"{WEBAPP_URL}{'?ref='+ref if ref else ''}"
+    text = f"""🌐 *TON WORLD METAVERSE*
 
-def get_user(uid):
-    if uid not in users:
-        users[uid] = {"gender": None, "looking_for": None, "partner": None, "coins": 0, "referred_by": None, "referrals": [], "claimed_channel": False, "claimed_group": False, "messaging_admin": False}
-    return users[uid]
+سلام {user.first_name}! به دنیای متاورس TON خوش اومدی 🚀
 
-def main_menu(uid):
-    u = get_user(uid)
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🎲 چت شانسی (رایگان)", callback_data="find_any"))
-    markup.add(InlineKeyboardButton("👧 چت با دختر (-2 سکه)", callback_data="find_female"))
-    markup.add(InlineKeyboardButton("👦 چت با پسر (-2 سکه)", callback_data="find_male"))
-    markup.add(InlineKeyboardButton(f"💰 سکه‌های من: {u['coins']}", callback_data="coins"))
-    markup.add(InlineKeyboardButton("🎁 دعوت دوستان (+20 سکه)", callback_data="referral"))
-    if not u["claimed_channel"] or not u["claimed_group"]:
-        row = []
-        if not u["claimed_channel"]:
-            row.append(InlineKeyboardButton("📺 کانال (+10)", url="https://t.me/chat_chanelbot1"))
-        if not u["claimed_group"]:
-            row.append(InlineKeyboardButton("👥 گروه (+15)", url="https://t.me/chat_groupbot1"))
-        markup.add(*row)
-        markup.add(InlineKeyboardButton("✅ عضو شدم - سکه بگیر", callback_data="claim_coins"))
-    markup.add(InlineKeyboardButton("📩 پیام به ادمین", callback_data="msg_admin"))
-    return markup
+🗺️ ۲۵۰۰ زمین دیجیتال روی بلاکچین TON
+💎 بخر · بساز · بفروش · اجاره بده
+📸 عکس بذار · درآمد بگیر
+🏆 توی لیدربورد بدرخش
 
-def gender_menu():
-    markup = InlineKeyboardMarkup()
-    markup.add(
-        InlineKeyboardButton("👦 پسر", callback_data="gender_male"),
-        InlineKeyboardButton("👧 دختر", callback_data="gender_female")
-    )
-    return markup
+━━━━━━━━━━━━━━━
+🎁 *ایردراپ:* ۱۰۰ نفر اول = ۱ زمین رایگان
+👥 *رفرال:* هر ۱۰ نفر = ۱ زمین رایگان
+💰 *کمیسیون:* فقط ۱۰٪
+📊 *درآمد بازدید:* هر ۱۰۰۰ بازدید = ۰.۰۱ TON"""
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🌐 ورود به TON WORLD", web_app=WebAppInfo(url=webapp_url))],
+        [InlineKeyboardButton("📊 آمار", callback_data="stats"),
+         InlineKeyboardButton("🏆 لیدربورد", callback_data="lb")],
+        [InlineKeyboardButton("🎁 ایردراپ", callback_data="airdrop"),
+         InlineKeyboardButton("👥 دعوت", callback_data="ref")],
+    ])
+    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
 
-def stop_keyboard():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton("🔴 قطع چت"))
-    return markup
-
-def remove_keyboard():
-    return ReplyKeyboardRemove()
-
-def cancel_keyboard():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton("❌ انصراف"))
-    return markup
-
-def check_membership(uid):
-    results = {"channel": False, "group": False}
+async def admin_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if str(update.effective_user.id) != ADMIN_ID:
+        await update.message.reply_text("❌ دسترسی ندارید"); return
+    import aiohttp
     try:
-        m = bot.get_chat_member(CHANNEL, uid)
-        if m.status not in ["left", "kicked"]:
-            results["channel"] = True
-    except: pass
-    try:
-        m = bot.get_chat_member(GROUP, uid)
-        if m.status not in ["left", "kicked"]:
-            results["group"] = True
-    except: pass
-    return results
+        async with aiohttp.ClientSession() as s:
+            async with s.get("http://localhost:5000/api/admin/stats") as r:
+                d = await r.json()
+        text = f"""👑 *پنل ادمین TON WORLD*
 
-@bot.message_handler(commands=["start"])
-def start(message):
-    uid = message.from_user.id
-    args = message.text.split()
-    u = get_user(uid)
-    if len(args) > 1:
+👥 کاربران: {d.get('total_users',0)}
+🗺️ زمین فروخته: {d.get('sold_lands',0)}
+💎 حجم معاملات: {d.get('total_volume',0)} TON
+💰 کمیسیون من: {d.get('total_commission',0)} TON
+🎁 ایردراپ: {d.get('airdrop_count',0)}/100"""
+    except: text = "❌ خطا در اتصال"
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💸 ارسال TON", callback_data="adm_send")],
+        [InlineKeyboardButton("👥 کاربران", callback_data="adm_users")],
+        [InlineKeyboardButton("🌐 ورود به پنل", web_app=WebAppInfo(url=f"{WEBAPP_URL}?admin=1"))],
+    ])
+    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+
+async def callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; await q.answer()
+    user = q.from_user
+    import aiohttp
+
+    if q.data == "stats":
         try:
-            ref_id = int(args[1])
-            if ref_id != uid and u["referred_by"] is None:
-                u["referred_by"] = ref_id
-                ref_u = get_user(ref_id)
-                if uid not in ref_u["referrals"]:
-                    ref_u["referrals"].append(uid)
-                    ref_u["coins"] += 20
-                    u["coins"] += 20
-                    bot.send_message(ref_id, f"🎉 یه نفر با لینک تو عضو شد!\n+20 سکه گرفتی!\n💰 سکه‌هات: {ref_u['coins']}")
-        except: pass
-    if u["gender"] is None:
-        bot.send_message(uid, "👋 به ربات چت ناشناس خوش اومدی!\n\n🎁 با ثبت‌نام *20 سکه* هدیه میگیری!\n📺 عضویت کانال: +10 سکه\n👥 عضویت گروه: +15 سکه\n🎁 دعوت هر دوست: +20 سکه\n\nاول بگو تو *پسری یا دختر؟*", parse_mode="Markdown", reply_markup=gender_menu())
-    else:
-        bot.send_message(uid, f"💰 سکه‌هات: {u['coins']}\n\nچی میخوای؟", reply_markup=main_menu(uid))
+            async with aiohttp.ClientSession() as s:
+                async with s.get("http://localhost:5000/api/stats") as r: d = await r.json()
+            text = f"📊 *آمار TON WORLD*\n\n🗺️ فروخته: {d['sold_lands']}\n🟢 موجود: {d['available_lands']}\n👥 کاربران: {d['total_users']}\n💎 حجم: {d['total_volume']} TON\n🎁 ایردراپ: {d['airdrop_count']}/100 ({d['airdrop_remaining']} مونده)"
+        except: text = "❌ خطا"
+        await q.edit_message_text(text, parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("gender_"))
-def set_gender(call):
-    uid = call.from_user.id
-    u = get_user(uid)
-    gender = "male" if call.data == "gender_male" else "female"
-    first_time = u["gender"] is None
-    u["gender"] = gender
-    label = "👦 پسر" if gender == "male" else "👧 دختر"
-    if first_time:
-        u["coins"] += 20
-        bot.edit_message_text(f"جنسیت: {label}\n\n🎁 20 سکه هدیه گرفتی!\n💰 سکه‌هات: {u['coins']}\n\nحالا انتخاب کن:", uid, call.message.message_id, reply_markup=main_menu(uid))
-    else:
-        bot.edit_message_text(f"جنسیت: {label}\n\nانتخاب کن:", uid, call.message.message_id, reply_markup=main_menu(uid))
+    elif q.data == "lb":
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.get("http://localhost:5000/api/leaderboard?type=lands") as r: d = await r.json()
+            medals = ['🥇','🥈','🥉','4️⃣','5️⃣']
+            text = "🏆 *لیدربورد - تعداد زمین*\n\n"
+            for i,u in enumerate(d['data'][:5]):
+                text += f"{medals[i]} {u.get('first_name') or u.get('username','ناشناس')} — {u['score']} زمین\n"
+        except: text = "❌ خطا"
+        await q.edit_message_text(text, parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data == "coins")
-def show_coins(call):
-    uid = call.from_user.id
-    u = get_user(uid)
-    bot.answer_callback_query(call.id, f"💰 سکه‌های تو: {u['coins']}", show_alert=True)
+    elif q.data == "airdrop":
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.post("http://localhost:5000/api/airdrop",json={"telegram_id":user.id}) as r: d = await r.json()
+            text = f"{'✅' if d.get('success') else '❌'} {d.get('message','خطا')}"
+        except: text = "❌ خطا"
+        await q.edit_message_text(text)
 
-@bot.callback_query_handler(func=lambda call: call.data == "referral")
-def referral(call):
-    uid = call.from_user.id
-    u = get_user(uid)
-    link = f"https://t.me/{bot.get_me().username}?start={uid}"
-    bot.answer_callback_query(call.id)
-    bot.send_message(uid, f"🎁 لینک دعوت تو:\n{link}\n\nهر کسی با این لینک بیاد، *هر دوتون 20 سکه* میگیرید!\n👥 دعوت‌هات: {len(u['referrals'])}", parse_mode="Markdown")
+    elif q.data == "ref":
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.get(f"http://localhost:5000/api/profile?id={user.id}") as r: d = await r.json()
+            ref = d.get('user',{}).get('referral_code','')
+            link = f"https://t.me/Tonworldlybot?start={ref}"
+            text = f"👥 *لینک دعوت تو:*\n\n`{link}`\n\n🎁 هر ۱۰ نفر = ۱ زمین رایگان\n📊 دعوتی‌های تو: {d.get('user',{}).get('ref_count',0)}"
+        except: text = "❌ خطا"
+        await q.edit_message_text(text, parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data == "claim_coins")
-def claim_coins(call):
-    uid = call.from_user.id
-    u = get_user(uid)
-    membership = check_membership(uid)
-    msg = ""
-    if membership["channel"]:
-        if not u["claimed_channel"]:
-            u["claimed_channel"] = True
-            u["coins"] += 10
-            msg += "✅ کانال: +10 سکه\n"
-        else:
-            msg += "⚠️ کانال: قبلاً گرفتی\n"
-    else:
-        msg += "❌ کانال: هنوز عضو نشدی\n"
-    if membership["group"]:
-        if not u["claimed_group"]:
-            u["claimed_group"] = True
-            u["coins"] += 15
-            msg += "✅ گروه: +15 سکه\n"
-        else:
-            msg += "⚠️ گروه: قبلاً گرفتی\n"
-    else:
-        msg += "❌ گروه: هنوز عضو نشدی\n"
-    msg += f"\n💰 سکه‌هات: {u['coins']}"
-    bot.answer_callback_query(call.id, msg, show_alert=True)
-    try:
-        bot.edit_message_reply_markup(uid, call.message.message_id, reply_markup=main_menu(uid))
-    except: pass
+    elif q.data == "adm_send" and str(user.id) == ADMIN_ID:
+        ctx.user_data['action'] = 'send'
+        await q.edit_message_text("💸 آیدی عددی و مقدار TON:\nمثال: `123456789 0.5`", parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data == "msg_admin")
-def msg_admin(call):
-    uid = call.from_user.id
-    u = get_user(uid)
-    u["messaging_admin"] = True
-    bot.answer_callback_query(call.id)
-    bot.send_message(uid, "📩 پیامت رو بنویس، ناشناس به ادمین میرسه:", reply_markup=cancel_keyboard())
+    elif q.data == "adm_users" and str(user.id) == ADMIN_ID:
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.get("http://localhost:5000/api/admin/users") as r: d = await r.json()
+            users = d.get('users',[])[:5]
+            text = "👥 *آخرین کاربران:*\n\n"
+            for u in users:
+                text += f"• {u.get('first_name','ناشناس')} | {u['telegram_id']} | {u['land_count']} زمین\n"
+        except: text = "❌ خطا"
+        await q.edit_message_text(text, parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("find_"))
-def find_partner(call):
-    uid = call.from_user.id
-    u = get_user(uid)
-    if u["gender"] is None:
-        bot.answer_callback_query(call.id, "اول جنسیتت رو انتخاب کن!")
-        return
-    if u["partner"]:
-        bot.answer_callback_query(call.id, "الان توی چتی! اول چت رو قطع کن.")
-        return
-    looking_for = {"find_any": "any", "find_female": "female", "find_male": "male"}[call.data]
-    if looking_for != "any":
-        if u["coins"] < 2:
-            bot.answer_callback_query(call.id, "💰 سکه کافی نداری!\nچت شانسی رایگانه یا سکه بگیر.", show_alert=True)
-            return
-        u["coins"] -= 2
-    u["looking_for"] = looking_for
-    global waiting
-    waiting = [w for w in waiting if w["id"] != uid]
-    partner = None
-    for w in waiting:
-        wid = w["id"]
-        if wid not in users: continue
-        my_match = (looking_for == "any" or users[wid]["gender"] == looking_for)
-        their_match = (w["looking_for"] == "any" or users[uid]["gender"] == w["looking_for"])
-        if my_match and their_match:
-            partner = w
-            break
-    if partner:
-        pid = partner["id"]
-        waiting.remove(partner)
-        u["partner"] = pid
-        users[pid]["partner"] = uid
-        bot.edit_message_text("✅ پارتنر پیدا شد! شروع کن...", uid, call.message.message_id)
-        bot.send_message(uid, "💬 چت شروع شد!", reply_markup=stop_keyboard())
-        bot.send_message(pid, "✅ پارتنر پیدا شد! شروع کن...", reply_markup=stop_keyboard())
-    else:
-        waiting.append({"id": uid, "looking_for": looking_for})
-        bot.edit_message_text(f"⏳ دنبال پارتنر میگردیم...\n💰 سکه‌هات: {u['coins']}\n\nبرای لغو: /stop", uid, call.message.message_id)
+async def handle_msg(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if str(user.id) == ADMIN_ID and ctx.user_data.get('action') == 'send':
+        try:
+            parts = update.message.text.split()
+            to_id, amount = parts[0], float(parts[1])
+            import aiohttp
+            async with aiohttp.ClientSession() as s:
+                async with s.post("http://localhost:5000/api/admin/send",json={"to_id":to_id,"amount":amount,"note":"ادمین"}) as r: d = await r.json()
+            await update.message.reply_text(f"✅ {amount} TON به {to_id} ارسال شد")
+            ctx.user_data.pop('action',None)
+        except: await update.message.reply_text("❌ فرمت اشتباه\nمثال: `123456789 0.5`", parse_mode="Markdown")
 
-def do_stop(uid):
-    global waiting
-    waiting = [w for w in waiting if w["id"] != uid]
-    u = get_user(uid)
-    if u["partner"]:
-        pid = u["partner"]
-        u["partner"] = None
-        if pid in users:
-            users[pid]["partner"] = None
-            bot.send_message(pid, "❌ پارتنرت چت رو قطع کرد.", reply_markup=remove_keyboard())
-            bot.send_message(pid, "دوباره شروع کن؟", reply_markup=main_menu(pid))
-        bot.send_message(uid, "❌ چت قطع شد.", reply_markup=remove_keyboard())
-        bot.send_message(uid, "دوباره شروع کن؟", reply_markup=main_menu(uid))
-    else:
-        bot.send_message(uid, "چتی نداری.", reply_markup=main_menu(uid))
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("admin", admin_cmd))
+    app.add_handler(CallbackQueryHandler(callback))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_msg))
+    print("🚀 TON WORLD Bot started!")
+    app.run_polling()
 
-@bot.message_handler(commands=["stop"])
-def stop(message):
-    do_stop(message.from_user.id)
-
-@bot.message_handler(commands=["coins"])
-def coins_cmd(message):
-    uid = message.from_user.id
-    u = get_user(uid)
-    bot.send_message(uid, f"💰 سکه‌هات: {u['coins']}\n👥 دعوت‌هات: {len(u['referrals'])}", reply_markup=main_menu(uid))
-
-@bot.message_handler(content_types=["text"])
-def forward_text(message):
-    uid = message.from_user.id
-    u = get_user(uid)
-
-    if message.text == "🔴 قطع چت":
-        do_stop(uid)
-        return
-
-    if message.text == "❌ انصراف":
-        u["messaging_admin"] = False
-        bot.send_message(uid, "انصراف دادی.", reply_markup=remove_keyboard())
-        bot.send_message(uid, "چی میخوای؟", reply_markup=main_menu(uid))
-        return
-
-    if u["messaging_admin"]:
-        u["messaging_admin"] = False
-        bot.send_message(ADMIN_ID, f"📩 پیام ناشناس از ربات:\n\n{message.text}")
-        bot.send_message(uid, "✅ پیامت به ادمین رسید!", reply_markup=remove_keyboard())
-        bot.send_message(uid, "چی میخوای؟", reply_markup=main_menu(uid))
-        return
-
-    if not u["partner"]:
-        bot.send_message(uid, "چتی نداری. /start بزن.", reply_markup=main_menu(uid))
-        return
-    bot.send_message(u["partner"], f"👤 ناشناس:\n{message.text}")
-
-@bot.message_handler(content_types=["photo"])
-def forward_photo(message):
-    uid = message.from_user.id
-    u = get_user(uid)
-    if not u["partner"]: return
-    bot.send_photo(u["partner"], message.photo[-1].file_id, caption="👤 ناشناس")
-
-@bot.message_handler(content_types=["voice"])
-def forward_voice(message):
-    uid = message.from_user.id
-    u = get_user(uid)
-    if not u["partner"]: return
-    bot.send_voice(u["partner"], message.voice.file_id)
-
-@bot.message_handler(content_types=["video"])
-def forward_video(message):
-    uid = message.from_user.id
-    u = get_user(uid)
-    if not u["partner"]: return
-    bot.send_video(u["partner"], message.video.file_id)
-
-@bot.message_handler(content_types=["sticker"])
-def forward_sticker(message):
-    uid = message.from_user.id
-    u = get_user(uid)
-    if not u["partner"]: return
-    bot.send_sticker(u["partner"], message.sticker.file_id)
-
-print("ربات روشنه! ✅")
-bot.polling(none_stop=True)
+if __name__ == "__main__":
+    main()
